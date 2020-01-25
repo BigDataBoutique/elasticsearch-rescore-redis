@@ -178,17 +178,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                         if (fd instanceof SortedSetDVBytesAtomicFieldData) {
                             final SortedSetDocValues data = ((SortedSetDVBytesAtomicFieldData) fd).getOrdinalsValues();
                             if (data != null) {
-                                if (!data.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
-                                    throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
-                                            + "] does not have the field [" + context.keyField.getFieldName() + "]");
+                                if (data.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
+                                    // document does have data for the field
+                                    final String term = data.lookupOrd(data.nextOrd()).utf8ToString();
+                                    topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
                                 }
-//                                if (data.getValueCount() > 1) {
-//                                    throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
-//                                            + "] has more than one value for [" + context.keyField.getFieldName() + "]");
-//                                }
                             }
-                            String term = data.lookupOrd(data.nextOrd()).utf8ToString();
-                            throw new IllegalArgumentException("[" + term + "]");
                         } else if (fd instanceof AtomicNumericFieldData) {
                             final SortedNumericDocValues data = ((AtomicNumericFieldData) fd).getLongValues();
                             if (data != null) {
@@ -200,8 +195,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                     throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
                                             + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                                 }
+
+                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(data.nextValue()),
+                                        context.keyPrefix);
                             }
-                            throw new IllegalArgumentException("[" + data.nextValue() + "] is a number");
                         }
                     }
                 }
@@ -219,6 +216,20 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                 return a.doc - b.doc;
             });
             return topDocs;
+        }
+
+        private static float getScoreFactor(final String key, @Nullable final String keyPrefix) {
+            final String factor;
+            if (keyPrefix == null) {
+                factor = jedis.get(key);
+            } else {
+                factor = jedis.get(keyPrefix + key);
+            }
+            try {
+                return Float.parseFloat(factor);
+            } catch (NumberFormatException ignored_e) {
+                return 1.0f;
+            }
         }
 
         @Override
