@@ -36,22 +36,9 @@ setup:
           rescore:
             redis:
               key_field: "productId.keyword"
-  - length: { hits.hits: 2 }
-  - match: { hits.hits.0._score: 0 }
-  - match: { hits.hits.1._score: 0 }
-
-  - do:
-      search:
-        rest_total_hits_as_int: true
-        index: test
-        body:
-          rescore:
-            window_size: 1
-            redis:
-              key_field: "productId.keyword"
   - length: { hits.hits: 3 }
   - match: { hits.hits.0._score: 1 }
-  - match: { hits.hits.1._score: 0 }
+  - match: { hits.hits.1._score: 1 }
   - match: { hits.hits.2._score: 0 }
 
 ---
@@ -66,7 +53,7 @@ setup:
               key_field: "productId.keyword"
               key_prefix: "mystore-"
   - length: { hits.hits: 3 }
-  - match: { hits.hits.0._score: 2 }
+  - match: { hits.hits.0._score: 1 }
   - match: { hits.hits.1._score: 1 }
   - match: { hits.hits.2._score: 0 }
 
@@ -80,8 +67,7 @@ setup:
           rescore:
             redis:
               key_field: "test"
-              key_prefix: "mystore-"
   - length: { hits.hits: 3 }
-  - match: { hits.hits.0._score: 2 }
+  - match: { hits.hits.0._score: 1 }
   - match: { hits.hits.1._score: 1 }
-  - match: { hits.hits.2._score: 0 }
+  - match: { hits.hits.2._score: 1 }

@@ -17,8 +17,6 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.fielddata.AtomicFieldData;
 import org.elasticsearch.index.fielddata.AtomicNumericFieldData;
 import org.elasticsearch.index.fielddata.IndexFieldData;
-import org.elasticsearch.index.fielddata.SortedBinaryDocValues;
-import org.elasticsearch.index.fielddata.SortedNumericDoubleValues;
 import org.elasticsearch.index.fielddata.plain.SortedSetDVBytesAtomicFieldData;
 import org.elasticsearch.index.query.QueryRewriteContext;
 import org.elasticsearch.index.query.QueryShardContext;
@@ -28,6 +26,8 @@ import org.elasticsearch.search.rescore.RescorerBuilder;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -219,17 +219,26 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
 
         private static float getScoreFactor(final String key, @Nullable final String keyPrefix) {
-            final String factor;
-            if (keyPrefix == null) {
-                factor = jedis.get(key);
-            } else {
-                factor = jedis.get(keyPrefix + key);
-            }
-            try {
-                return Float.parseFloat(factor);
-            } catch (NumberFormatException ignored_e) {
-                return 1.0f;
-            }
+            assert key != null;
+
+            return AccessController.doPrivileged((PrivilegedAction<Float>) () -> {
+                final String factor;
+                if (keyPrefix == null) {
+                    factor = jedis.get(key);
+                } else {
+                    factor = jedis.get(keyPrefix + key);
+                }
+
+                if (factor == null) {
+                    return 1.0f;
+                }
+
+                try {
+                    return Float.parseFloat(factor);
+                } catch (NumberFormatException ignored_e) {
+                    return 1.0f;
+                }
+            });
         }
 
         @Override
