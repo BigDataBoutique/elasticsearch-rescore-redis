@@ -1,6 +1,8 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SortedNumericDocValues;
+import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
@@ -15,6 +17,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.fielddata.AtomicFieldData;
 import org.elasticsearch.index.fielddata.AtomicNumericFieldData;
 import org.elasticsearch.index.fielddata.IndexFieldData;
+import org.elasticsearch.index.fielddata.SortedBinaryDocValues;
 import org.elasticsearch.index.fielddata.SortedNumericDoubleValues;
 import org.elasticsearch.index.fielddata.plain.SortedSetDVBytesAtomicFieldData;
 import org.elasticsearch.index.query.QueryRewriteContext;
@@ -173,9 +176,21 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
                         AtomicFieldData fd = context.keyField.load(leaf);
                         if (fd instanceof SortedSetDVBytesAtomicFieldData) {
-                            //throw new IllegalArgumentException("[" + context.factorField.getFieldName() + "] is a sorted set of terms");
-                            SortedNumericDoubleValues data = null;
-                            data = ((AtomicNumericFieldData) fd).getDoubleValues();
+                            final SortedSetDocValues data = ((SortedSetDVBytesAtomicFieldData) fd).getOrdinalsValues();
+                            if (data != null) {
+                                if (!data.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
+                                    throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
+                                            + "] does not have the field [" + context.keyField.getFieldName() + "]");
+                                }
+//                                if (data.getValueCount() > 1) {
+//                                    throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
+//                                            + "] has more than one value for [" + context.keyField.getFieldName() + "]");
+//                                }
+                            }
+                            String term = data.lookupOrd(data.nextOrd()).utf8ToString();
+                            throw new IllegalArgumentException("[" + term + "]");
+                        } else if (fd instanceof AtomicNumericFieldData) {
+                            final SortedNumericDocValues data = ((AtomicNumericFieldData) fd).getLongValues();
                             if (data != null) {
                                 if (!data.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
                                     throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
@@ -186,11 +201,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                             + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                                 }
                             }
-                            topDocs.scoreDocs[i].score *= data.nextValue();
-                        } else if (fd instanceof AtomicNumericFieldData) {
-                            //throw new IllegalArgumentException("[" + context.factorField.getFieldName() + "] is a number");
+                            throw new IllegalArgumentException("[" + data.nextValue() + "] is a number");
                         }
-                        //fd.getBytesValues().docValueCount()
                     }
                 }
             }
@@ -210,7 +222,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
 
         @Override
-        public Explanation explain(int topLevelDocId, IndexSearcher searcher, RescoreContext rescoreContext, Explanation sourceExplanation) throws IOException {
+        public Explanation explain(int topLevelDocId, IndexSearcher searcher, RescoreContext rescoreContext,
+                                   Explanation sourceExplanation) throws IOException {
             final RedisRescoreContext context = (RedisRescoreContext) rescoreContext;
             return Explanation.match(1 /* TODO */, context.keyField.getFieldName(), singletonList(sourceExplanation));
         }

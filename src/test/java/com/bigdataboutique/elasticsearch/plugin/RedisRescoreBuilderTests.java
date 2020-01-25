@@ -1,10 +1,6 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.common.io.stream.Writeable;
-import org.elasticsearch.search.rescore.RescoreContext;
 import org.elasticsearch.test.AbstractWireSerializingTestCase;
 
 import java.io.IOException;

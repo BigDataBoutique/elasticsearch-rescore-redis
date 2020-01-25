@@ -1,4 +1,4 @@
-# Integration tests for the expert scoring script example plugin
+# Integration tests for the redis rescoring plugin
 #
 "Plugin loaded":
     - skip:
@@ -13,4 +13,4 @@
     - do:
         nodes.info: {}
 
-    - contains:  { nodes.$master.plugins: { name: redis-rescore } }
+    - contains:  { nodes.$master.plugins: { name: elasticsearch-rescore-redis } }

@@ -12,25 +12,30 @@ setup:
       index:
         index:  test
         id:     1
-        body:   { "test": 1 }
+        body:   { "test": 1, "productId": "foo" }
   - do:
       index:
         index:  test
         id:     2
-        body:   { "test": 2 }
+        body:   { "test": 2, "productId": "bar" }
+  - do:
+      index:
+        index:  test
+        id:     3
+        body:   { "test": 3 }
   - do:
       indices.refresh: {}
 
 ---
-"just factor":
+"no prefix":
   - do:
       search:
         rest_total_hits_as_int: true
         index: test
         body:
           rescore:
-            example:
-              factor: 0
+            redis:
+              key_field: "productId.keyword"
   - length: { hits.hits: 2 }
   - match: { hits.hits.0._score: 0 }
   - match: { hits.hits.1._score: 0 }
@@ -42,23 +47,41 @@ setup:
         body:
           rescore:
             window_size: 1
-            example:
-              factor: 0
-  - length: { hits.hits: 2 }
+            redis:
+              key_field: "productId.keyword"
+  - length: { hits.hits: 3 }
   - match: { hits.hits.0._score: 1 }
   - match: { hits.hits.1._score: 0 }
+  - match: { hits.hits.2._score: 0 }
 
 ---
-"with factor field":
+"with key prefix":
   - do:
       search:
         rest_total_hits_as_int: true
         index: test
         body:
           rescore:
-            example:
-              factor: 1
-              factor_field: test
-  - length: { hits.hits: 2 }
+            redis:
+              key_field: "productId.keyword"
+              key_prefix: "mystore-"
+  - length: { hits.hits: 3 }
   - match: { hits.hits.0._score: 2 }
   - match: { hits.hits.1._score: 1 }
+  - match: { hits.hits.2._score: 0 }
+
+---
+"key is numeric field":
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test
+        body:
+          rescore:
+            redis:
+              key_field: "test"
+              key_prefix: "mystore-"
+  - length: { hits.hits: 3 }
+  - match: { hits.hits.0._score: 2 }
+  - match: { hits.hits.1._score: 1 }
+  - match: { hits.hits.2._score: 0 }
