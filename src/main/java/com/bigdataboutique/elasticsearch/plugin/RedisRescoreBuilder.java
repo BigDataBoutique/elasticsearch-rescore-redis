@@ -5,7 +5,6 @@ import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
@@ -29,7 +28,6 @@ import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
 
@@ -143,13 +141,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext) throws IOException {
             RedisRescoreContext context = (RedisRescoreContext) rescoreContext;
 
-            final int end = Math.min(topDocs.scoreDocs.length, rescoreContext.getWindowSize());
-//            for (int i = 0; i < end; i++) {
-//                topDocs.scoreDocs[i].score *= context.factor;
-//            }
-
             if (context.keyField != null) {
-
                 /*
                  * Since this example looks up a single field value it should
                  * access them in docId order because that is the order in
@@ -160,12 +152,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                  * them in (reader, field, docId) order because that is the
                  * order they are on disk.
                  */
-                ScoreDoc[] sortedByDocId = new ScoreDoc[topDocs.scoreDocs.length];
-                System.arraycopy(topDocs.scoreDocs, 0, sortedByDocId, 0, topDocs.scoreDocs.length);
-                Arrays.sort(sortedByDocId, Comparator.comparingInt(a -> a.doc)); // Safe because doc ids >= 0
-                Iterator<LeafReaderContext> leaves = searcher.getIndexReader().leaves().iterator();
+                final Iterator<LeafReaderContext> leaves = searcher.getIndexReader().leaves().iterator();
                 LeafReaderContext leaf = null;
 
+                final int end = Math.min(topDocs.scoreDocs.length, rescoreContext.getWindowSize());
                 int endDoc = 0;
                 for (int i = 0; i < end; i++) {
                     if (topDocs.scoreDocs[i].doc >= endDoc) {
