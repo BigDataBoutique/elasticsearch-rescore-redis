@@ -137,6 +137,34 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
         private static final Jedis jedis = new Jedis("localhost"); // TODO host from settings
 
+        private static String getTermFromFieldData(int topLevelDocId, AtomicFieldData fd,
+                LeafReaderContext leaf, String fieldName) throws IOException {
+            String term = null;
+            if (fd instanceof SortedSetDVBytesAtomicFieldData) {
+                final SortedSetDocValues data = ((SortedSetDVBytesAtomicFieldData) fd).getOrdinalsValues();
+                if (data != null) {
+                    if (data.advanceExact(topLevelDocId - leaf.docBase)) {
+                        // document does have data for the field
+                        term = data.lookupOrd(data.nextOrd()).utf8ToString();
+                    }
+                }
+            } else if (fd instanceof AtomicNumericFieldData) {
+                final SortedNumericDocValues data = ((AtomicNumericFieldData) fd).getLongValues();
+                if (data != null) {
+                    if (!data.advanceExact(topLevelDocId - leaf.docBase)) {
+                        throw new IllegalArgumentException("document [" + topLevelDocId
+                                + "] does not have the field [" + fieldName + "]");
+                    }
+                    if (data.docValueCount() > 1) {
+                        throw new IllegalArgumentException("document [" + topLevelDocId
+                                + "] has more than one value for [" + fieldName + "]");
+                    }
+                    term = String.valueOf(data.nextValue());
+                }
+            }
+            return term;
+        }
+
         @Override
         public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext) throws IOException {
             RedisRescoreContext context = (RedisRescoreContext) rescoreContext;
@@ -158,38 +186,16 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                 final int end = Math.min(topDocs.scoreDocs.length, rescoreContext.getWindowSize());
                 int endDoc = 0;
                 for (int i = 0; i < end; i++) {
-                    if (topDocs.scoreDocs[i].doc >= endDoc) {
+                    int topLevelDocId = topDocs.scoreDocs[i].doc;
+                    if (topLevelDocId >= endDoc) {
                         do {
                             leaf = leaves.next();
                             endDoc = leaf.docBase + leaf.reader().maxDoc();
                         } while (topDocs.scoreDocs[i].doc >= endDoc);
 
                         AtomicFieldData fd = context.keyField.load(leaf);
-                        if (fd instanceof SortedSetDVBytesAtomicFieldData) {
-                            final SortedSetDocValues data = ((SortedSetDVBytesAtomicFieldData) fd).getOrdinalsValues();
-                            if (data != null) {
-                                if (data.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
-                                    // document does have data for the field
-                                    final String term = data.lookupOrd(data.nextOrd()).utf8ToString();
-                                    topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
-                                }
-                            }
-                        } else if (fd instanceof AtomicNumericFieldData) {
-                            final SortedNumericDocValues data = ((AtomicNumericFieldData) fd).getLongValues();
-                            if (data != null) {
-                                if (!data.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
-                                    throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
-                                            + "] does not have the field [" + context.keyField.getFieldName() + "]");
-                                }
-                                if (data.docValueCount() > 1) {
-                                    throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
-                                            + "] has more than one value for [" + context.keyField.getFieldName() + "]");
-                                }
-
-                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(data.nextValue()),
-                                        context.keyPrefix);
-                            }
-                        }
+                        String term = getTermFromFieldData(topLevelDocId, fd, leaf, context.keyField.getFieldName());
+                        topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
                     }
                 }
             }
@@ -235,7 +241,23 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         public Explanation explain(int topLevelDocId, IndexSearcher searcher, RescoreContext rescoreContext,
                                    Explanation sourceExplanation) throws IOException {
             final RedisRescoreContext context = (RedisRescoreContext) rescoreContext;
-            return Explanation.match(1 /* TODO */, context.keyField.getFieldName(), singletonList(sourceExplanation));
+            final Iterator<LeafReaderContext> leaves = searcher.getIndexReader().leaves().iterator();
+            LeafReaderContext leaf = null;
+            int endDoc = 0;
+            do {
+                leaf = leaves.next();
+                endDoc = leaf.docBase + leaf.reader().maxDoc();
+            } while (topLevelDocId >= endDoc);
+
+            AtomicFieldData fd = context.keyField.load(leaf);
+            String fieldName = context.keyField.getFieldName();
+            String term = getTermFromFieldData(topLevelDocId, fd, leaf, fieldName);
+            if (term != null) {
+                float score = getScoreFactor(term, context.keyPrefix);
+                return Explanation.match(score, fieldName, singletonList(sourceExplanation));
+            } else {
+                return Explanation.noMatch(fieldName, sourceExplanation);
+            }
         }
     }
 }
