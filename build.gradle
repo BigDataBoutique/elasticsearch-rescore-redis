@@ -33,6 +33,12 @@ repositories {
     jcenter()
 }
 
+configurations.all {
+    resolutionStrategy {
+        force 'org.slf4j:slf4j-api:1.7.21'
+    }
+}
+
 dependencies {
     compile group: 'org.elasticsearch', name: 'elasticsearch', version: elasticsearch
     compile group: 'redis.clients', name: 'jedis', version: '3.2.0'
@@ -41,6 +47,11 @@ dependencies {
 //    compileClasspath    group: 'org.codelibs.elasticsearch.lib',    name: 'plugin-classloader',         version: elasticsearch
 //    compile             group: 'org.apache.logging.log4j',          name: 'log4j-core',                 version: '2.11.0'
     testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
+    testImplementation('org.testcontainers:testcontainers:1.12.5') {
+        exclude  group: 'junit', module: 'junit'
+        exclude  group: 'net.java.dev.jna', module: 'jna'
+    }
 }
 
 esplugin {
