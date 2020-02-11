@@ -6,10 +6,12 @@ buildscript {
         jcenter()
     }
     dependencies {
+        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.10.7"
         classpath "org.elasticsearch.gradle:build-tools:${rootProject.file('VERSION.txt').text.trim()}"
     }
 }
 
+apply plugin: 'docker-compose'
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
@@ -42,7 +44,6 @@ configurations.all {
 dependencies {
     compile group: 'org.elasticsearch', name: 'elasticsearch', version: elasticsearch
     compile group: 'redis.clients', name: 'jedis', version: '3.2.0'
-
     testCompile group: 'org.elasticsearch.test', name: 'framework', version: elasticsearch
 //    compileClasspath    group: 'org.codelibs.elasticsearch.lib',    name: 'plugin-classloader',         version: elasticsearch
 //    compile             group: 'org.apache.logging.log4j',          name: 'log4j-core',                 version: '2.11.0'
@@ -60,6 +61,9 @@ esplugin {
     version project.version
     description project.description
 }
+
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
 licenseHeaders.enabled = false
+
+dockerCompose.isRequiredBy(integTestRunner)
