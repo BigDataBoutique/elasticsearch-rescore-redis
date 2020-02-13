@@ -1,4 +1,11 @@
 .gradle/
 build/
 .idea/
+
+# ignore all the files created by java extension pack vscode extension
+bin
+.classpath
+.project
+.settings
+.vscode
 out

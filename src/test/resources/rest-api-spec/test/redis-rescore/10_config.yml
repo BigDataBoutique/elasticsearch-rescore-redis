@@ -1,0 +1,39 @@
+"Test plugin settings":
+
+    # Use the Get Cluster Settings API to list the settings including the default ones
+    - do:
+        cluster.get_settings:
+          include_defaults: true
+
+    - match: { defaults.redisRescore.redisUrl: "localhost" }
+
+    # Use the Cluster Update Settings API to update some custom settings
+    - do:
+        cluster.put_settings:
+          body:
+            transient:
+              redisRescore:
+                redisUrl: "http://example.com"
+
+    # Use the Get Cluster Settings API to list the settings again
+    - do:
+        cluster.get_settings: {}
+
+    - match: { transient.redisRescore.redisUrl: "http://example.com" }
+
+    # Try to update the "redisUrl" setting with an invalid value
+    - do:
+        catch: bad_request
+        cluster.put_settings:
+          body:
+            transient:
+              redisRescore:
+                redisUrl: "this is not a URI!"
+
+    # Reset the settings to their default values
+    - do:
+        cluster.put_settings:
+          body:
+            transient:
+              redisRescore:
+                redisUrl: "localhost"

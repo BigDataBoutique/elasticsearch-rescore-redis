@@ -41,6 +41,11 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private final String keyField;
     private final String keyPrefix;
 
+    private static Jedis jedis;
+    public static void setJedis(Jedis j) {
+        jedis = j;
+    }
+
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix) {
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
@@ -135,8 +140,6 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
         private static final RedisRescorer INSTANCE = new RedisRescorer();
 
-        private static final Jedis jedis = new Jedis("localhost"); // TODO host from settings
-
         private static String getTermFromFieldData(int topLevelDocId, AtomicFieldData fd,
                 LeafReaderContext leaf, String fieldName) throws IOException {
             String term = null;
@@ -186,16 +189,18 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                 final int end = Math.min(topDocs.scoreDocs.length, rescoreContext.getWindowSize());
                 int endDoc = 0;
                 for (int i = 0; i < end; i++) {
-                    int topLevelDocId = topDocs.scoreDocs[i].doc;
+                    final int topLevelDocId = topDocs.scoreDocs[i].doc;
                     if (topLevelDocId >= endDoc) {
                         do {
                             leaf = leaves.next();
                             endDoc = leaf.docBase + leaf.reader().maxDoc();
                         } while (topDocs.scoreDocs[i].doc >= endDoc);
 
-                        AtomicFieldData fd = context.keyField.load(leaf);
-                        String term = getTermFromFieldData(topLevelDocId, fd, leaf, context.keyField.getFieldName());
-                        topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
+                        final AtomicFieldData fd = context.keyField.load(leaf);
+                        final String term = getTermFromFieldData(topLevelDocId, fd, leaf, context.keyField.getFieldName());
+                        if (term != null) {
+                            topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
+                        }
                     }
                 }
             }
