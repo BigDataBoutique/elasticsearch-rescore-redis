@@ -37,10 +37,9 @@ setup:
             redis:
               key_field: "productId.keyword"
   - length: { hits.hits: 3 }
-  - match: { hits.hits.0._score: 1 }
-  - match: { hits.hits.1._score: 1 }
-  - match: { hits.hits.2._score: 0 }
-
+  - match: { hits.hits.0._score: 5 }
+  - match: { hits.hits.1._score: 3 }
+  - match: { hits.hits.2._score: 1 }
 ---
 "with key prefix":
   - do:
@@ -53,10 +52,9 @@ setup:
               key_field: "productId.keyword"
               key_prefix: "mystore-"
   - length: { hits.hits: 3 }
-  - match: { hits.hits.0._score: 1 }
-  - match: { hits.hits.1._score: 1 }
-  - match: { hits.hits.2._score: 0 }
-
+  - match: { hits.hits.0._score: 6 }
+  - match: { hits.hits.1._score: 4 }
+  - match: { hits.hits.2._score: 1 }
 ---
 "key is numeric field":
   - do:
@@ -71,19 +69,3 @@ setup:
   - match: { hits.hits.0._score: 1 }
   - match: { hits.hits.1._score: 1 }
   - match: { hits.hits.2._score: 1 }
-
----
-"explain":
-  - do:
-      search:
-        rest_total_hits_as_int: true
-        index: test
-        explain: true
-        body:
-          rescore:
-            redis:
-              key_field: "productId.keyword"
-  - length: { hits.hits: 3 }
-  - match: { hits.hits.0._explanation.value: 0 }
-  - match: { hits.hits.1._explanation.value: 0 }
-  - match: { hits.hits.2._explanation.value: 0 }
