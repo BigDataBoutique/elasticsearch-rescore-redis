@@ -1,5 +1,7 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
@@ -37,6 +39,8 @@ import static org.elasticsearch.common.xcontent.ConstructingObjectParser.optiona
 
 public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public static final String NAME = "redis";
+
+    protected static final Logger log = LogManager.getLogger(RedisRescoreBuilder.class);
 
     private final String keyField;
     private final String keyPrefix;
@@ -170,7 +174,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
         @Override
         public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext) throws IOException {
-            RedisRescoreContext context = (RedisRescoreContext) rescoreContext;
+            assert rescoreContext != null;
+            if (topDocs == null || topDocs.scoreDocs.length == 0) {
+                return topDocs;
+            }
+
+            final RedisRescoreContext context = (RedisRescoreContext) rescoreContext;
 
             if (context.keyField != null) {
                 /*
@@ -183,24 +192,47 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                  * them in (reader, field, docId) order because that is the
                  * order they are on disk.
                  */
+
                 final Iterator<LeafReaderContext> leaves = searcher.getIndexReader().leaves().iterator();
                 LeafReaderContext leaf = null;
 
                 final int end = Math.min(topDocs.scoreDocs.length, rescoreContext.getWindowSize());
+                SortedSetDocValues docValues = null;
+                SortedNumericDocValues numericDocValues = null;
                 int endDoc = 0;
                 for (int i = 0; i < end; i++) {
-                    final int topLevelDocId = topDocs.scoreDocs[i].doc;
-                    if (topLevelDocId >= endDoc) {
+                    if (topDocs.scoreDocs[i].doc >= endDoc) {
                         do {
                             leaf = leaves.next();
                             endDoc = leaf.docBase + leaf.reader().maxDoc();
                         } while (topDocs.scoreDocs[i].doc >= endDoc);
 
                         final AtomicFieldData fd = context.keyField.load(leaf);
-                        final String term = getTermFromFieldData(topLevelDocId, fd, leaf, context.keyField.getFieldName());
-                        if (term != null) {
+                        if (fd instanceof SortedSetDVBytesAtomicFieldData) {
+                            docValues = ((SortedSetDVBytesAtomicFieldData) fd).getOrdinalsValues();
+                        } else if (fd instanceof AtomicNumericFieldData) {
+                            numericDocValues = ((AtomicNumericFieldData) fd).getLongValues();
+                        }
+                    }
+                    if (docValues != null) {
+                        if (docValues.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
+                            // document does have data for the field
+                            final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
                             topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
                         }
+                    } else if (numericDocValues != null) {
+                        if (!numericDocValues.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
+                            throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
+                                    + "] does not have the field [" + context.keyField.getFieldName() + "]");
+                        }
+                        if (numericDocValues.docValueCount() > 1) {
+                            throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
+                                    + "] has more than one value for [" + context.keyField.getFieldName() + "]");
+                        }
+
+                        topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                context.keyPrefix);
+
                     }
                 }
             }
@@ -223,23 +255,28 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             assert key != null;
 
             return AccessController.doPrivileged((PrivilegedAction<Float>) () -> {
-                final String factor;
-                if (keyPrefix == null) {
-                    factor = jedis.get(key);
-                } else {
-                    factor = jedis.get(keyPrefix + key);
-                }
-
+                final String fullKey = fullKey(key, keyPrefix);
+                final String factor = jedis.get(fullKey);
                 if (factor == null) {
+                    log.debug("Redis rescore factor null for key " + keyPrefix + key);
                     return 1.0f;
                 }
 
                 try {
                     return Float.parseFloat(factor);
                 } catch (NumberFormatException ignored_e) {
+                    log.warn("Redis rescore factor NumberFormatException for key " + fullKey);
                     return 1.0f;
                 }
             });
+        }
+
+        private static String fullKey(final String key, @Nullable final String keyPrefix) {
+            if (keyPrefix == null) {
+                return key;
+            } else {
+                return keyPrefix + key;
+            }
         }
 
         @Override
