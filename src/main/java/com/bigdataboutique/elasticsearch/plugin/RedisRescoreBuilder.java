@@ -46,6 +46,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private final String keyPrefix;
 
     private static Jedis jedis;
+
     public static void setJedis(Jedis j) {
         jedis = j;
     }
