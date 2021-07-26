@@ -38,7 +38,6 @@ public class RedisRescorePlugin extends Plugin implements SearchPlugin {
 
     @Override
     public List<RescorerSpec<?>> getRescorers() {
-        return singletonList(
-                new RescorerSpec<>(RedisRescoreBuilder.NAME, RedisRescoreBuilder::new, RedisRescoreBuilder::fromXContent));
+        return singletonList(new RescorerSpec<>(RedisRescoreBuilder.NAME, RedisRescoreBuilder::new, RedisRescoreBuilder::fromXContent) );
     }
 }

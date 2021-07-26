@@ -80,7 +80,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         this.scoreOperator = "*";
     }
 
-    public RedisRescoreBuilder(StreamInput in) throws IOException,ScoreOperatorException {
+    public RedisRescoreBuilder(StreamInput in) throws IOException {
         super(in);
         keyField = in.readString();
         keyPrefix = in.readOptionalString();
