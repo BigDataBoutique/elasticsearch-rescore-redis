@@ -1,5 +1,7 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
+import com.bigdataboutique.elasticsearch.plugin.exceptions.*;// Exceptions
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
@@ -53,11 +55,23 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public static void setJedis(Jedis j) {
         jedis = j;
     }
+
+    public Boolean checkOperator(String operator){ // checks if its possible to use that operator
+        for (String possibleOperator : possibleOperators){
+            if (operator.equals(possibleOperator))
+                return true;
+        }
+        return false;
+    }
+
+
 // Constructors--------------------------------------------------------------------------------------------------
-    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator) {
+    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator) throws ScoreOperatorException {
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
         this.scoreOperator = scoreOperator;
+        if (!checkOperator(scoreOperator))
+            throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
     }
 
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix) {
@@ -66,11 +80,13 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         this.scoreOperator = "*";
     }
 
-    public RedisRescoreBuilder(StreamInput in) throws IOException {
+    public RedisRescoreBuilder(StreamInput in) throws IOException,ScoreOperatorException {
         super(in);
         keyField = in.readString();
         keyPrefix = in.readOptionalString();
         scoreOperator = in.readOptionalString();
+        if (!checkOperator(scoreOperator))
+            throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
     }
 //--------------------------------------------------------------------------------------------------
 
