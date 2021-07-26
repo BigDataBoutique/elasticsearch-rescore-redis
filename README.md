@@ -24,13 +24,15 @@ Follow the standard plugin installation instructions, with a zip version of the 
   "rescore": {
     "redis":{
       "key_field": "productId.keyword",
-      "key_prefix": "mystore-"
+      "key_prefix": "mystore-",
+      "score_operator": "+"
     } 
   } 
 }
 ```
 
 In this example, we are expecting each hit to contain a field `productId` (of keyword type). The value of that field will be looked up in Redis as a key (for example, Redis key `mystore-abc123` will be looked-up for a document with productId abc123; the `mystore-` key prefix is configurable in query time).
+The `score_operator` field is the operator you want to be using when doing your final rescore, you can use `+`, `*`, or `-`.
 
 The value which will be found under that Redis key, if exists and of numeric type, will be multiplied by the current document score to produce a new score.
 
