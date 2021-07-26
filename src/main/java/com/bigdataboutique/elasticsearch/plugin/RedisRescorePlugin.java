@@ -18,7 +18,6 @@ public class RedisRescorePlugin extends Plugin implements SearchPlugin {
         this.config = new Config(settings);
         RedisRescoreBuilder.setJedis(new Jedis(config.getRedisUrl()));
     }
-
     /**
      * @return the plugin's custom settings
      */

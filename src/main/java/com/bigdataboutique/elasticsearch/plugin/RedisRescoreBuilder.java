@@ -44,28 +44,41 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
     private final String keyField;
     private final String keyPrefix;
+    private final String scoreOperator;
+
+    private final String[] possibleOperators = new String[]{"*","+","-"};
 
     private static Jedis jedis;
 
     public static void setJedis(Jedis j) {
         jedis = j;
     }
+// Constructors--------------------------------------------------------------------------------------------------
+    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator) {
+        this.keyField = keyField;
+        this.keyPrefix = keyPrefix;
+        this.scoreOperator = scoreOperator;
+    }
 
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix) {
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
+        this.scoreOperator = "*";
     }
 
     public RedisRescoreBuilder(StreamInput in) throws IOException {
         super(in);
         keyField = in.readString();
         keyPrefix = in.readOptionalString();
+        scoreOperator = in.readOptionalString();
     }
+//--------------------------------------------------------------------------------------------------
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
         out.writeString(keyField);
         out.writeOptionalString(keyPrefix);
+        out.writeOptionalString(scoreOperator);
     }
 
     @Override
@@ -80,6 +93,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
     private static final ParseField KEY_FIELD = new ParseField("key_field");
     private static final ParseField KEY_PREFIX = new ParseField("key_prefix");
+    private static final ParseField SCORE_OPERATOR = new ParseField("score_operator");
+
     @Override
     protected void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(KEY_FIELD.getPreferredName(), keyField);
@@ -93,6 +108,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     static {
         PARSER.declareString(constructorArg(), KEY_FIELD);
         PARSER.declareString(optionalConstructorArg(), KEY_PREFIX);
+        PARSER.declareString(optionalConstructorArg(), SCORE_OPERATOR);
     }
     public static RedisRescoreBuilder fromXContent(XContentParser parser) {
         return PARSER.apply(parser, null);
@@ -102,7 +118,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) throws IOException {
         IndexFieldData<?> keyField =
                 this.keyField == null ? null : context.getForField(context.fieldMapper(this.keyField));
-        return new RedisRescoreContext(windowSize, keyPrefix, keyField);
+        return new RedisRescoreContext(windowSize, keyPrefix, keyField, scoreOperator);
     }
 
     @Override
@@ -129,21 +145,29 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         return keyPrefix;
     }
 
+    String scoreOperator() {
+        return scoreOperator;
+    }
+
     private static class RedisRescoreContext extends RescoreContext {
         private final String keyPrefix;
+        private final String scoreOperator;
         @Nullable
         private final IndexFieldData<?> keyField;
 
-        RedisRescoreContext(int windowSize, String keyPrefix, @Nullable IndexFieldData<?> keyField) {
+        RedisRescoreContext(int windowSize, String keyPrefix, @Nullable IndexFieldData<?> keyField, String scoreOperator) {
             super(windowSize, RedisRescorer.INSTANCE);
             this.keyPrefix = keyPrefix;
             this.keyField = keyField;
+            this.scoreOperator = scoreOperator;
         }
     }
 
     private static class RedisRescorer implements Rescorer {
 
         private static final RedisRescorer INSTANCE = new RedisRescorer();
+
+
 
         private static String getTermFromFieldData(int topLevelDocId, AtomicFieldData fd,
                 LeafReaderContext leaf, String fieldName) throws IOException {
@@ -182,6 +206,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
             final RedisRescoreContext context = (RedisRescoreContext) rescoreContext;
 
+
+
             if (context.keyField != null) {
                 /*
                  * Since this example looks up a single field value it should
@@ -215,12 +241,23 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             numericDocValues = ((AtomicNumericFieldData) fd).getLongValues();
                         }
                     }
+
                     if (docValues != null) {
                         if (docValues.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
                             // document does have data for the field
                             final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
-                            topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
+
+                            switch (context.scoreOperator) {
+                                case "+":
+                                    topDocs.scoreDocs[i].score += getScoreFactor(term, context.keyPrefix);
+                                case "*":
+                                    topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
+                                case "-":
+                                    topDocs.scoreDocs[i].score -= getScoreFactor(term, context.keyPrefix);
+                            }
+                            //gympass
                         }
+
                     } else if (numericDocValues != null) {
                         if (!numericDocValues.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
                             throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
@@ -230,9 +267,14 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
                                     + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                         }
-
-                        topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                context.keyPrefix);
+                        switch (context.scoreOperator) {
+                            case "+":
+                                topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
+                            case "*":
+                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
+                            case "-":
+                                topDocs.scoreDocs[i].score -= getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
+                        }
 
                     }
                 }
