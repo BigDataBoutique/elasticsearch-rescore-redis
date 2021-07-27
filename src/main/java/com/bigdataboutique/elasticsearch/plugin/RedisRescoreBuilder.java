@@ -48,7 +48,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private final String keyPrefix;
     private final String scoreOperator;
 
-    private final String[] possibleOperators = new String[]{"*","+","-"};
+    private final String[] possibleOperators = new String[]{"MULTIPLY","ADD","SUBTRACT"};
 
     private static Jedis jedis;
 
@@ -77,7 +77,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix) {
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
-        this.scoreOperator = "*";
+        this.scoreOperator = "MULTIPLY";
     }
 
     public RedisRescoreBuilder(StreamInput in) throws IOException {
@@ -264,12 +264,15 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
 
                             switch (context.scoreOperator) {
-                                case "+":
+                                case "ADD":
                                     topDocs.scoreDocs[i].score += getScoreFactor(term, context.keyPrefix);
-                                case "*":
+                                    break;
+                                case "MULTIPLY":
                                     topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
-                                case "-":
+                                    break;
+                                case "SUBTRACT":
                                     topDocs.scoreDocs[i].score -= getScoreFactor(term, context.keyPrefix);
+                                    break;
                             }
                             //gympass
                         }
@@ -284,12 +287,15 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                     + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                         }
                         switch (context.scoreOperator) {
-                            case "+":
+                            case "ADD":
                                 topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
-                            case "*":
+                                break;
+                            case "MULTIPLY":
                                 topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
-                            case "-":
+                                break;
+                            case "SUBTRACT":
                                 topDocs.scoreDocs[i].score -= getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
+                                break;
                         }
 
                     }
