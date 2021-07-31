@@ -1,6 +1,6 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
-import com.bigdataboutique.elasticsearch.plugin.exceptions.*;// Exceptions
+import com.bigdataboutique.elasticsearch.plugin.exceptions.ScoreOperatorException;// Exceptions
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -288,13 +288,16 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                         }
                         switch (context.scoreOperator) {
                             case "ADD":
-                                topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
+                                topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                        context.keyPrefix);
                                 break;
                             case "MULTIPLY":
-                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
+                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                        context.keyPrefix);
                                 break;
                             case "SUBTRACT":
-                                topDocs.scoreDocs[i].score -= getScoreFactor(String.valueOf(numericDocValues.nextValue()), context.keyPrefix);
+                                topDocs.scoreDocs[i].score -= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                        context.keyPrefix);
                                 break;
                         }
 
