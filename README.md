@@ -37,3 +37,42 @@ The `score_operator` field is the operator you want to be using when doing your 
 The value which will be found under that Redis key, if exists and of numeric type, will be multiplied by the current document score to produce a new score.
 
 You can use `0` to demote results (e.g. mark as unavailable in stock), `1` to leave unchanged, or any other value to produce positive or negative boosts based on your business logic.
+
+<br/>
+<br/>
+
+# Plugin Builder and Installation
+
+## 1- First of all pull the git rep into your machine
+<br/>
+
+## 2- Install gradle in your machine
+
+<p>In Linux you just have to do: </p>
+
+```bash
+sudo apt install gradle
+```
+<br/>
+
+## 3- Install Java-JDK version 13
+In order to compile the plugin, the Java version in your `$Path` must be <strong>version 13</strong> <br/>
+
+If you are using the <strong>Intelij</strong> IDE then you can simply go to: 
+
+> `settings` --> `Build, Execution, Deplyment` --> `Build Tools` --> `Gradle`
+
+And in the `Gradle JVM` field, select the `Dowload JDK` option, there choose the **Version 16** and download.
+
+<br/>
+
+## 4- Install Docker and Redis
+Once again, in order for the build to work you need to have the **Docker** installed in you machine, and the **Redis** in it. To do this we can simply run this commands in your terminal:<br/>
+
+```bash
+$ sudo apt install docker
+$ sudo docker pull redis
+```
+<br/>
+
+## 5- Build the Plugin
