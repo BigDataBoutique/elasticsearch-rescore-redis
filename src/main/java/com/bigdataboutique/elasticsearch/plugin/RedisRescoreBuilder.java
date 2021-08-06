@@ -48,7 +48,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private final String keyPrefix;
     private final String scoreOperator;
 
-    private final String[] possibleOperators = new String[]{"MULTIPLY","ADD","SUBTRACT"};
+    private final String[] possibleOperators = new String[]{"MULTIPLY","ADD","SUBTRACT","SET"};
 
     private static Jedis jedis;
 
@@ -265,6 +265,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
                             switch (context.scoreOperator) {
                                 case "ADD":
+                                    //System.out.println("Adding");
                                     topDocs.scoreDocs[i].score += getScoreFactor(term, context.keyPrefix);
                                     break;
                                 case "MULTIPLY":
@@ -272,6 +273,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                     break;
                                 case "SUBTRACT":
                                     topDocs.scoreDocs[i].score -= getScoreFactor(term, context.keyPrefix);
+                                    break;
+                                default:
+                                    //System.out.println("Def");
+                                    topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
                                     break;
                             }
                             //gympass
@@ -288,6 +293,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                         }
                         switch (context.scoreOperator) {
                             case "ADD":
+                                //System.out.println("Adding");
                                 topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
                                         context.keyPrefix);
                                 break;
@@ -297,6 +303,11 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                 break;
                             case "SUBTRACT":
                                 topDocs.scoreDocs[i].score -= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                        context.keyPrefix);
+                                break;
+                            default :
+                                //System.out.println("Def");
+                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
                                         context.keyPrefix);
                                 break;
                         }
