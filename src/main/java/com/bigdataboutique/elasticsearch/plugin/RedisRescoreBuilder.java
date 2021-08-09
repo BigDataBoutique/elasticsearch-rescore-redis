@@ -123,7 +123,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             new ConstructingObjectParser<RedisRescoreBuilder, Void>(NAME,
             args -> {
                 try {
-                    return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2]);
+                    if (args.length == 3)
+                        return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2]);
+                    else
+                        return new RedisRescoreBuilder((String) args[0], (String) args[1], "MULTIPLY");
                 } catch (ScoreOperatorException e) {
                     throw new IllegalArgumentException(e);
                 }
