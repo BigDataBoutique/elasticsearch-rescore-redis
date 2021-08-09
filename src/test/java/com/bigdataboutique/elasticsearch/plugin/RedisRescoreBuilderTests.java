@@ -1,5 +1,6 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
+import com.bigdataboutique.elasticsearch.plugin.exceptions.ScoreOperatorException;
 import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.test.AbstractWireSerializingTestCase;
 
@@ -9,7 +10,11 @@ public class RedisRescoreBuilderTests extends AbstractWireSerializingTestCase<Re
     @Override
     protected RedisRescoreBuilder createTestInstance() {
         String factorField = randomBoolean() ? null : randomAlphaOfLength(5);
-        return new RedisRescoreBuilder("prefix-", factorField).windowSize(between(0, Integer.MAX_VALUE));
+        try {
+            return new RedisRescoreBuilder("prefix-", factorField,"MULTIPLY").windowSize(between(0, Integer.MAX_VALUE));
+        } catch (ScoreOperatorException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     @Override
@@ -19,7 +24,7 @@ public class RedisRescoreBuilderTests extends AbstractWireSerializingTestCase<Re
 
     @Override
     protected RedisRescoreBuilder mutateInstance(RedisRescoreBuilder instance) throws IOException {
-        return new RedisRescoreBuilder(instance.keyField(), instance.keyPrefix());
+        return new RedisRescoreBuilder(instance.keyField(), instance.keyPrefix(), instance.scoreOperator());
     }
 
     public void testRewrite() throws IOException {

@@ -74,11 +74,11 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
     }
 
-    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix) {
+    /*public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix) {
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
-        this.scoreOperator = "MULTIPLY";
-    }
+        this.scoreOperator = "ADD";
+    }*/
 
     public RedisRescoreBuilder(StreamInput in) throws IOException {
         super(in);
@@ -119,8 +119,16 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
     }
 
-    private static final ConstructingObjectParser<RedisRescoreBuilder, Void> PARSER = new ConstructingObjectParser<>(NAME,
-            args -> new RedisRescoreBuilder((String) args[0], (String) args[1]));
+    private static final ConstructingObjectParser<RedisRescoreBuilder, Void> PARSER =
+            new ConstructingObjectParser<RedisRescoreBuilder, Void>(NAME,
+            args -> {
+                try {
+                    return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2]);
+                } catch (ScoreOperatorException e) {
+                    throw new IllegalArgumentException(e);
+                }
+            }
+            );
     static {
         PARSER.declareString(constructorArg(), KEY_FIELD);
         PARSER.declareString(optionalConstructorArg(), KEY_PREFIX);
@@ -263,6 +271,15 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             // document does have data for the field
                             final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
 
+                           /* if (context.scoreOperator.equals("ADD"))
+                                topDocs.scoreDocs[i].score += getScoreFactor(term, context.keyPrefix);
+
+                            else if (context.scoreOperator.equals("MULTIPLY"))
+                                topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
+
+                            else
+                                throw new IllegalArgumentException("Little error: "+context.scoreOperator);*/
+
                             switch (context.scoreOperator) {
                                 case "ADD":
                                     //System.out.println("Adding");
@@ -291,6 +308,16 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
                                     + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                         }
+                       /* if (context.scoreOperator.equals("ADD"))
+                            topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                    context.keyPrefix);
+
+                        else if (context.scoreOperator.equals("MULTIPLY"))
+                            topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                    context.keyPrefix);
+
+                        else
+                            throw new IllegalArgumentException("Little error: "+context.scoreOperator);*/
                         switch (context.scoreOperator) {
                             case "ADD":
                                 //System.out.println("Adding");
