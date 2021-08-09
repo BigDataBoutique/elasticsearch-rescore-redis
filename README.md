@@ -51,7 +51,7 @@ You can use `0` to demote results (e.g. mark as unavailable in stock), `1` to le
 <p>In Linux you just have to do: </p>
 
 ```bash
-sudo apt install gradle
+$ sudo apt install gradle
 ```
 <br/>
 

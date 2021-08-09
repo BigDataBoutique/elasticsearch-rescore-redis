@@ -108,9 +108,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     @Override
     protected void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(KEY_FIELD.getPreferredName(), keyField);
-        if (keyPrefix != null) {
+        if (keyPrefix != null)
             builder.field(KEY_PREFIX.getPreferredName(), keyPrefix);
-        }
+
+        if (scoreOperator != null)
+            builder.field(SCORE_OPERATOR.getPreferredName(), scoreOperator);
+
     }
 
     private static final ConstructingObjectParser<RedisRescoreBuilder, Void> PARSER =
