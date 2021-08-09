@@ -274,15 +274,6 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             // document does have data for the field
                             final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
 
-                           /* if (context.scoreOperator.equals("ADD"))
-                                topDocs.scoreDocs[i].score += getScoreFactor(term, context.keyPrefix);
-
-                            else if (context.scoreOperator.equals("MULTIPLY"))
-                                topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
-
-                            else
-                                throw new IllegalArgumentException("Little error: "+context.scoreOperator);*/
-
                             switch (context.scoreOperator) {
                                 case "ADD":
                                     //System.out.println("Adding");
@@ -294,10 +285,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                 case "SUBTRACT":
                                     topDocs.scoreDocs[i].score -= getScoreFactor(term, context.keyPrefix);
                                     break;
-                                default:
-                                    //System.out.println("Def");
-                                    topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
-                                    break;
+
                             }
                             //gympass
                         }
@@ -311,16 +299,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
                                     + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                         }
-                       /* if (context.scoreOperator.equals("ADD"))
-                            topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                    context.keyPrefix);
 
-                        else if (context.scoreOperator.equals("MULTIPLY"))
-                            topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                    context.keyPrefix);
-
-                        else
-                            throw new IllegalArgumentException("Little error: "+context.scoreOperator);*/
                         switch (context.scoreOperator) {
                             case "ADD":
                                 //System.out.println("Adding");
@@ -333,11 +312,6 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                 break;
                             case "SUBTRACT":
                                 topDocs.scoreDocs[i].score -= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                        context.keyPrefix);
-                                break;
-                            default :
-                                //System.out.println("Def");
-                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
                                         context.keyPrefix);
                                 break;
                         }
