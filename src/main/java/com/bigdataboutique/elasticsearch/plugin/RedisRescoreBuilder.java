@@ -1,5 +1,6 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
+import com.bigdataboutique.elasticsearch.plugin.exceptions.PrefixesOverlapingException;
 import com.bigdataboutique.elasticsearch.plugin.exceptions.ScoreOperatorException;// Exceptions
 
 import org.apache.logging.log4j.LogManager;
@@ -46,7 +47,9 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
     private final String keyField;
     private final String keyPrefix;
+    private final String[] keyPrefixes;
     private final String scoreOperator;
+    private final String boostOperator;
 
     private final String[] possibleOperators = new String[]{"MULTIPLY","ADD","SUBTRACT","SET"};
 
@@ -56,7 +59,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         jedis = j;
     }
 
-    public Boolean checkOperator(String operator){ // checks if its possible to use that operator
+    public Boolean checkOperator(String operator){ // checks if it's possible to use that operator
         for (String possibleOperator : possibleOperators){
             if (operator.equals(possibleOperator))
                 return true;
@@ -66,12 +69,24 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
 
 // Constructors--------------------------------------------------------------------------------------------------
-    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator) throws ScoreOperatorException {
+    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator,
+                               @Nullable String[] keyPrefixes, String boostOperator)
+            throws ScoreOperatorException, PrefixesOverlapingException {
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
+        this.keyPrefixes = keyPrefixes;
         this.scoreOperator = scoreOperator;
-        if (!checkOperator(scoreOperator))
+        this.boostOperator = boostOperator;
+
+        if (keyPrefix != null && keyPrefixes != null )
+            throw new PrefixesOverlapingException("keyPrefix", "keyPrefixes");
+
+        else if (!checkOperator(scoreOperator))
             throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
+
+        else if (!checkOperator(boostOperator))
+            throw new ScoreOperatorException(boostOperator, "Wrong type operator:");
+
     }
 
     public RedisRescoreBuilder(StreamInput in) throws IOException {
@@ -79,8 +94,18 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         keyField = in.readString();
         keyPrefix = in.readOptionalString();
         scoreOperator = in.readOptionalString();
-        if (!checkOperator(scoreOperator))
+        keyPrefixes = in.readOptionalStringArray();
+        boostOperator = in.readOptionalString();
+
+        if (keyPrefix != null && keyPrefixes != null )
+            throw new PrefixesOverlapingException("keyPrefix", "keyPrefixes");
+
+        else if (!checkOperator(scoreOperator))
             throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
+
+        else if (!checkOperator(boostOperator))
+            throw new ScoreOperatorException(boostOperator, "Wrong type operator:");
+
     }
 //--------------------------------------------------------------------------------------------------
 
@@ -104,15 +129,18 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private static final ParseField KEY_FIELD = new ParseField("key_field");
     private static final ParseField KEY_PREFIX = new ParseField("key_prefix");
     private static final ParseField SCORE_OPERATOR = new ParseField("score_operator");
+    private static final ParseField KEY_PREFIXES = new ParseField("key_prefixes");
+    private static final ParseField BOOST_OPERATOR = new ParseField("boost_operator");
 
     @Override
     protected void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(KEY_FIELD.getPreferredName(), keyField);
+        builder.field(SCORE_OPERATOR.getPreferredName(), scoreOperator);
+        builder.field(BOOST_OPERATOR.getPreferredName(), boostOperator);
         if (keyPrefix != null)
             builder.field(KEY_PREFIX.getPreferredName(), keyPrefix);
-
-        if (scoreOperator != null)
-            builder.field(SCORE_OPERATOR.getPreferredName(), scoreOperator);
+        if (keyPrefixes != null)
+            builder.field(KEY_PREFIXES.getPreferredName(), keyPrefixes);
 
     }
 
@@ -120,11 +148,9 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             new ConstructingObjectParser<RedisRescoreBuilder, Void>(NAME,
             args -> {
                 try {
-                    if (args.length == 3)
-                        return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2]);
-                    else
-                        return new RedisRescoreBuilder((String) args[0], (String) args[1], "MULTIPLY");
-                } catch (ScoreOperatorException e) {
+                    return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2],
+                            (String[]) args[3], (String) args[4]);
+                } catch (IOException e) {
                     throw new IllegalArgumentException(e);
                 }
             }
@@ -133,6 +159,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         PARSER.declareString(constructorArg(), KEY_FIELD);
         PARSER.declareString(optionalConstructorArg(), KEY_PREFIX);
         PARSER.declareString(optionalConstructorArg(), SCORE_OPERATOR);
+        PARSER.declareString(optionalConstructorArg(), KEY_PREFIXES);
+        PARSER.declareString(optionalConstructorArg(), BOOST_OPERATOR);
     }
     public static RedisRescoreBuilder fromXContent(XContentParser parser) {
         return PARSER.apply(parser, null);
@@ -142,7 +170,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) throws IOException {
         IndexFieldData<?> keyField =
                 this.keyField == null ? null : context.getForField(context.fieldMapper(this.keyField));
-        return new RedisRescoreContext(windowSize, keyPrefix, keyField, scoreOperator);
+        return new RedisRescoreContext(windowSize, keyPrefix, keyField, scoreOperator, keyPrefixes, boostOperator);
     }
 
     @Override
@@ -169,21 +197,33 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         return keyPrefix;
     }
 
+    @Nullable
+    String[] keyPrefixes(){return keyPrefixes;}
+
     String scoreOperator() {
         return scoreOperator;
     }
 
+    String boostOperator() {
+        return boostOperator;
+    }
+
     private static class RedisRescoreContext extends RescoreContext {
         private final String keyPrefix;
+        private final String[] keyPrefixes;
         private final String scoreOperator;
+        private final String boostOperator;
         @Nullable
         private final IndexFieldData<?> keyField;
 
-        RedisRescoreContext(int windowSize, String keyPrefix, @Nullable IndexFieldData<?> keyField, String scoreOperator) {
+        RedisRescoreContext(int windowSize, String keyPrefix, @Nullable IndexFieldData<?> keyField, String scoreOperator,
+                            String[] keyPrefixes, String boostOperator) {
             super(windowSize, RedisRescorer.INSTANCE);
             this.keyPrefix = keyPrefix;
             this.keyField = keyField;
             this.scoreOperator = scoreOperator;
+            this.keyPrefixes = keyPrefixes;
+            this.boostOperator = boostOperator;
         }
     }
 
@@ -252,6 +292,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                 SortedNumericDocValues numericDocValues = null;
                 int endDoc = 0;
                 for (int i = 0; i < end; i++) {
+                    float redisScore = 0;
                     if (topDocs.scoreDocs[i].doc >= endDoc) {
                         do {
                             leaf = leaves.next();
@@ -271,25 +312,47 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             // document does have data for the field
                             final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
 
-                            switch (context.scoreOperator) {
-                                case "ADD":
-                                    topDocs.scoreDocs[i].score += getScoreFactor(term, context.keyPrefix);
-                                    break;
-                                case "MULTIPLY":
-                                    topDocs.scoreDocs[i].score *= getScoreFactor(term, context.keyPrefix);
-                                    break;
-                                case "SUBTRACT":
-                                    topDocs.scoreDocs[i].score -= getScoreFactor(term, context.keyPrefix);
-                                    break;
-                                case "SET":
-                                    topDocs.scoreDocs[i].score = getScoreFactor(term, context.keyPrefix);
-                                    break;
-
+                            if (context.keyPrefixes != null){
+                                for (String prefix : context.keyPrefixes ){
+                                    switch (context.scoreOperator) {
+                                        case "ADD":
+                                            redisScore += getScoreFactor(term, prefix);
+                                            break;
+                                        case "MULTIPLY":
+                                            redisScore *= getScoreFactor(term, prefix);
+                                            break;
+                                        case "SUBTRACT":
+                                            redisScore -= getScoreFactor(term, prefix);
+                                            break;
+                                        case "SET":
+                                            redisScore = getScoreFactor(term, prefix);
+                                            break;
+                                    }
+                                }
                             }
-                            //gympass
+                            else{ // keyPrefix
+                                switch (context.scoreOperator) {
+                                    case "ADD":
+                                        redisScore += getScoreFactor(term, context.keyPrefix);
+                                        break;
+                                    case "MULTIPLY":
+                                        redisScore *= getScoreFactor(term, context.keyPrefix);
+                                        break;
+                                    case "SUBTRACT":
+                                        redisScore -= getScoreFactor(term, context.keyPrefix);
+                                        break;
+                                    case "SET":
+                                        redisScore = getScoreFactor(term, context.keyPrefix);
+                                        break;
+
+                                }
+                            }
+
+
                         }
 
-                    } else if (numericDocValues != null) {
+                    }
+                    else if (numericDocValues != null) {
                         if (!numericDocValues.advanceExact(topDocs.scoreDocs[i].doc - leaf.docBase)) {
                             throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
                                     + "] does not have the field [" + context.keyField.getFieldName() + "]");
@@ -298,25 +361,65 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
                                     + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                         }
+                        if (context.keyPrefixes != null){
+                            for (String prefix : context.keyPrefixes ){
+                                switch (context.scoreOperator) {
+                                    case "ADD":
+                                        redisScore += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                                prefix);
+                                        break;
+                                    case "MULTIPLY":
+                                        redisScore *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                                prefix);
+                                        break;
+                                    case "SUBTRACT":
+                                        redisScore -= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                                prefix);
+                                        break;
+                                    case "SET":
+                                        redisScore = getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                                prefix);
+                                        break;
 
-                        switch (context.scoreOperator) {
-                            case "ADD":
-                                topDocs.scoreDocs[i].score += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                        context.keyPrefix);
-                                break;
-                            case "MULTIPLY":
-                                topDocs.scoreDocs[i].score *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                        context.keyPrefix);
-                                break;
-                            case "SUBTRACT":
-                                topDocs.scoreDocs[i].score -= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                        context.keyPrefix);
-                                break;
-                            case "SET":
-                                topDocs.scoreDocs[i].score = getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                        context.keyPrefix);
-                                break;
+                                }
+                            }
                         }
+                        else{
+                            switch (context.scoreOperator) {
+                                case "ADD":
+                                    redisScore += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                            context.keyPrefix);
+                                    break;
+                                case "MULTIPLY":
+                                    redisScore *= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                            context.keyPrefix);
+                                    break;
+                                case "SUBTRACT":
+                                    redisScore -= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                            context.keyPrefix);
+                                    break;
+                                case "SET":
+                                    redisScore = getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                            context.keyPrefix);
+                                    break;
+
+                            }
+                        }
+                    }
+
+                    switch (context.boostOperator) {
+                        case "ADD":
+                            topDocs.scoreDocs[i].score += redisScore;
+                            break;
+                        case "MULTIPLY":
+                            topDocs.scoreDocs[i].score *= redisScore;
+                            break;
+                        case "SUBTRACT":
+                            topDocs.scoreDocs[i].score -= redisScore;
+                            break;
+                        case "SET":
+                            topDocs.scoreDocs[i].score = redisScore;
+                            break;
 
                     }
                 }
