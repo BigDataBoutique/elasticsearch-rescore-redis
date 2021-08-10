@@ -114,6 +114,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         out.writeString(keyField);
         out.writeOptionalString(keyPrefix);
         out.writeOptionalString(scoreOperator);
+        out.writeOptionalString(boostOperator);
+        out.writeOptionalStringArray(keyPrefixes);
     }
 
     @Override
@@ -312,7 +314,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             // document does have data for the field
                             final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
 
-                            if (context.keyPrefixes != null){
+                            if (context.keyPrefixes != null){ //keyPrefixes
                                 for (String prefix : context.keyPrefixes ){
                                     switch (context.scoreOperator) {
                                         case "ADD":
@@ -361,7 +363,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             throw new IllegalArgumentException("document [" + topDocs.scoreDocs[i].doc
                                     + "] has more than one value for [" + context.keyField.getFieldName() + "]");
                         }
-                        if (context.keyPrefixes != null){
+                        if (context.keyPrefixes != null){ //KeyPrefixes
                             for (String prefix : context.keyPrefixes ){
                                 switch (context.scoreOperator) {
                                     case "ADD":
@@ -384,7 +386,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                 }
                             }
                         }
-                        else{
+                        else{ //keyPrefix
                             switch (context.scoreOperator) {
                                 case "ADD":
                                     redisScore += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
