@@ -10,7 +10,8 @@ public class RedisRescoreBuilderTests extends AbstractWireSerializingTestCase<Re
     protected RedisRescoreBuilder createTestInstance() {
         String factorField = randomBoolean() ? null : randomAlphaOfLength(5);
         try {
-            return new RedisRescoreBuilder("prefix-", factorField,"MULTIPLY",null,"MULTIPLY" ).windowSize(between(0, Integer.MAX_VALUE));
+            return new RedisRescoreBuilder("prefix-", factorField,"MULTIPLY",
+                    (String[]) null,"MULTIPLY").windowSize(between(0, Integer.MAX_VALUE));
         } catch (IOException e) {
             throw new IllegalArgumentException(e);
         }

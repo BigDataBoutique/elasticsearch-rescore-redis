@@ -35,6 +35,8 @@ import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.List;
+import java.util.Collections;
 
 import static java.util.Collections.singletonList;
 import static org.elasticsearch.common.xcontent.ConstructingObjectParser.constructorArg;
@@ -68,20 +70,33 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
         return false;
     }
+   public static String[] GetStringArray(@Nullable List<Object> arr) { // converts the Array List to a StringArray
+        if(arr == null)
+            return null;
+
+        String[] res = new String[arr.size()];
+        for (int i = 0; i < arr.size(); i++) {
+            if ( arr.get(i) instanceof String){
+                res[i] = (String) arr.get(i);
+            }
+        }
+        return res;
+   }
 
 
 // Constructors--------------------------------------------------------------------------------------------------
+
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator,
                                @Nullable String[] keyPrefixes, String boostOperator)
             throws ScoreOperatorException, PrefixesOverlapingException {
 
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
-        this.keyPrefixes = keyPrefixes;
         this.scoreOperator = scoreOperator;
         this.boostOperator = boostOperator;
+        this.keyPrefixes = keyPrefixes;
 
-        if (keyPrefix != null && keyPrefixes != null )
+        if (this.keyPrefix != null && this.keyPrefixes != null)
             throw new PrefixesOverlapingException("keyPrefix", "keyPrefixes");
 
         else if (!checkOperator(scoreOperator))
@@ -91,6 +106,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             throw new ScoreOperatorException(boostOperator, "Wrong type operator:");
 
     }
+
 
     public RedisRescoreBuilder(StreamInput in) throws IOException {
         super(in);
@@ -154,7 +170,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             args -> {
                 try {
                     return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2],
-                            (String[]) args[3], (String) args[4]);
+                            GetStringArray(Collections.singletonList(args[3]) ), (String) args[4]);
 
                 } catch (IOException e) {
                     throw new IllegalArgumentException(e);
@@ -165,7 +181,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         PARSER.declareString(constructorArg(), KEY_FIELD);
         PARSER.declareString(optionalConstructorArg(), KEY_PREFIX);
         PARSER.declareString(optionalConstructorArg(), SCORE_OPERATOR);
-        PARSER.declareString(optionalConstructorArg(), KEY_PREFIXES);
+        PARSER.declareStringArray(optionalConstructorArg(), KEY_PREFIXES);
         PARSER.declareString(optionalConstructorArg(), BOOST_OPERATOR);
     }
     public static RedisRescoreBuilder fromXContent(XContentParser parser) {
