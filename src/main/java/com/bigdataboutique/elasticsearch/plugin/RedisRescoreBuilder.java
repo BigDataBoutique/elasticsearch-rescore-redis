@@ -51,6 +51,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private final String scoreOperator;
     private final String boostOperator;
 
+
+
     private final String[] possibleOperators = new String[]{"MULTIPLY","ADD","SUBTRACT","SET"};
 
     private static Jedis jedis;
@@ -72,6 +74,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator,
                                @Nullable String[] keyPrefixes, String boostOperator)
             throws ScoreOperatorException, PrefixesOverlapingException {
+
         this.keyField = keyField;
         this.keyPrefix = keyPrefix;
         this.keyPrefixes = keyPrefixes;
@@ -152,6 +155,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                 try {
                     return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2],
                             (String[]) args[3], (String) args[4]);
+
                 } catch (IOException e) {
                     throw new IllegalArgumentException(e);
                 }

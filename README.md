@@ -62,7 +62,7 @@ If you are using the <strong>Intelij</strong> IDE then you can simply go to:
 
 > `settings` --> `Build, Execution, Deplyment` --> `Build Tools` --> `Gradle`
 
-And in the `Gradle JVM` field, select the `Dowload JDK` option, there choose the **Version 16** and download.
+And in the `Gradle JVM` field, select the `Dowload JDK` option, there choose the **Version 13** and download.
 
 <br/>
 
