@@ -35,12 +35,13 @@ import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Objects;
-import java.util.List;
-import java.util.Collections;
+import java.util.ArrayList;
+
 
 import static java.util.Collections.singletonList;
 import static org.elasticsearch.common.xcontent.ConstructingObjectParser.constructorArg;
 import static org.elasticsearch.common.xcontent.ConstructingObjectParser.optionalConstructorArg;
+
 
 public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public static final String NAME = "redis";
@@ -70,22 +71,24 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
         return false;
     }
-   public static String[] GetStringArray(@Nullable List<Object> arr) { // converts the Array List to a StringArray
-        if(arr == null)
+    public static String[] GetStringArray(@Nullable ArrayList<?> arr) {
+        if (arr == null || arr.isEmpty()){
             return null;
-
-        String[] res = new String[arr.size()];
-        for (int i = 0; i < arr.size(); i++) {
-            if ( arr.get(i) instanceof String){
-                res[i] = (String) arr.get(i);
-            }
         }
-        return res;
-   }
+
+        String[] str = new String[arr.size()];
+
+        for (int j = 0; j < arr.size(); j++) {
+
+            if(arr.get(j) instanceof String)
+                str[j] = (String) arr.get(j);
+        }
+
+        return str;
+    }
 
 
 // Constructors--------------------------------------------------------------------------------------------------
-
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator,
                                @Nullable String[] keyPrefixes, String boostOperator)
             throws ScoreOperatorException, PrefixesOverlapingException {
@@ -170,7 +173,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             args -> {
                 try {
                     return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2],
-                            GetStringArray(Collections.singletonList(args[3]) ), (String) args[4]);
+                            GetStringArray( (ArrayList<?>) args[3]) , (String) args[4]);
 
                 } catch (IOException e) {
                     throw new IllegalArgumentException(e);
