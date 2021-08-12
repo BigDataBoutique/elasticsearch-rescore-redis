@@ -71,19 +71,14 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
         return false;
     }
-    public static String[] GetStringArray(@Nullable ArrayList<?> arr) {
-        if (arr == null || arr.isEmpty()){
+    public static String[] GetStringArray(@Nullable ArrayList<?> arr) { // Transforms a ArrayList in a String[]
+        if (arr == null || arr.isEmpty())
             return null;
-        }
-
         String[] str = new String[arr.size()];
-
         for (int j = 0; j < arr.size(); j++) {
-
             if(arr.get(j) instanceof String)
                 str[j] = (String) arr.get(j);
         }
-
         return str;
     }
 
@@ -99,10 +94,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         this.boostOperator = boostOperator;
         this.keyPrefixes = keyPrefixes;
 
-        if (this.keyPrefix != null && this.keyPrefixes != null)
-            throw new PrefixesOverlapingException("keyPrefix", "keyPrefixes");
 
-        else if (!checkOperator(scoreOperator))
+        if (!checkOperator(scoreOperator))
             throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
 
         else if (!checkOperator(boostOperator))
@@ -119,10 +112,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         keyPrefixes = in.readOptionalStringArray();
         boostOperator = in.readOptionalString();
 
-        if (keyPrefix != null && keyPrefixes != null )
-            throw new PrefixesOverlapingException("keyPrefix", "keyPrefixes");
 
-        else if (!checkOperator(scoreOperator))
+        if (!checkOperator(scoreOperator))
             throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
 
         else if (!checkOperator(boostOperator))
@@ -173,7 +164,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             args -> {
                 try {
                     return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2],
-                            GetStringArray( (ArrayList<?>) args[3]) , (String) args[4]);
+                            GetStringArray((ArrayList<?>) args[3]) , (String) args[4]);
 
                 } catch (IOException e) {
                     throw new IllegalArgumentException(e);
