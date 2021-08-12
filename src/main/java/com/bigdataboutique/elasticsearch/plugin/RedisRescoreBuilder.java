@@ -97,10 +97,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         this.keyPrefixes = keyPrefixes;
 
 
-        if (!checkOperator(scoreOperator))
+        if (!checkOperator(this.scoreOperator))
             throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
 
-        else if (!checkOperator(boostOperator))
+        else if (!checkOperator(this.boostOperator))
             throw new ScoreOperatorException(boostOperator, "Wrong type operator:");
 
     }
@@ -115,10 +115,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         boostOperator = in.readOptionalString() == null ? BOOST_OPERATOR_DEFAULT : in.readOptionalString();
 
 
-        if (!checkOperator(scoreOperator))
+        if (!checkOperator(this.scoreOperator))
             throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
 
-        else if (!checkOperator(boostOperator))
+        else if (!checkOperator(this.boostOperator))
             throw new ScoreOperatorException(boostOperator, "Wrong type operator:");
 
     }
