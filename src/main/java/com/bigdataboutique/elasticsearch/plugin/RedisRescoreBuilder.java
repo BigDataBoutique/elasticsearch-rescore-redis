@@ -45,6 +45,8 @@ import static org.elasticsearch.common.xcontent.ConstructingObjectParser.optiona
 
 public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public static final String NAME = "redis";
+    private static final String SCORE_OPERATOR_DEFAULT = "ADD";
+    private static final String BOOST_OPERATOR_DEFAULT = "ADD";
 
     protected static final Logger log = LogManager.getLogger(RedisRescoreBuilder.class);
 
@@ -84,14 +86,14 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
 
 // Constructors--------------------------------------------------------------------------------------------------
-    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, String scoreOperator,
-                               @Nullable String[] keyPrefixes, String boostOperator)
+    public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, @Nullable String scoreOperator,
+                               @Nullable String[] keyPrefixes, @Nullable String boostOperator)
             throws ScoreOperatorException, PrefixesOverlapingException {
 
-        this.keyField = keyField;
+        this.keyField =  keyField;
         this.keyPrefix = keyPrefix;
-        this.scoreOperator = scoreOperator;
-        this.boostOperator = boostOperator;
+        this.scoreOperator = scoreOperator == null ? SCORE_OPERATOR_DEFAULT : scoreOperator;
+        this.boostOperator = boostOperator == null ? BOOST_OPERATOR_DEFAULT : boostOperator;
         this.keyPrefixes = keyPrefixes;
 
 
@@ -108,9 +110,9 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         super(in);
         keyField = in.readString();
         keyPrefix = in.readOptionalString();
-        scoreOperator = in.readOptionalString();
+        scoreOperator = in.readOptionalString() == null ? SCORE_OPERATOR_DEFAULT : in.readOptionalString();
         keyPrefixes = in.readOptionalStringArray();
-        boostOperator = in.readOptionalString();
+        boostOperator = in.readOptionalString() == null ? BOOST_OPERATOR_DEFAULT : in.readOptionalString();
 
 
         if (!checkOperator(scoreOperator))
@@ -150,8 +152,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     @Override
     protected void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(KEY_FIELD.getPreferredName(), keyField);
-        builder.field(SCORE_OPERATOR.getPreferredName(), scoreOperator);
-        builder.field(BOOST_OPERATOR.getPreferredName(), boostOperator);
+        if(scoreOperator != null)
+            builder.field(SCORE_OPERATOR.getPreferredName(), scoreOperator);
+        if(boostOperator != null)
+            builder.field(BOOST_OPERATOR.getPreferredName(), boostOperator);
         if (keyPrefix != null)
             builder.field(KEY_PREFIX.getPreferredName(), keyPrefix);
         if (keyPrefixes != null)
@@ -216,10 +220,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     @Nullable
     String[] keyPrefixes(){return keyPrefixes;}
 
+    @Nullable
     String scoreOperator() {
         return scoreOperator;
     }
 
+    @Nullable
     String boostOperator() {
         return boostOperator;
     }
