@@ -350,21 +350,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                 }
                             }
                             else{ // keyPrefix
-                                switch (context.scoreOperator) {
-                                    case "ADD":
-                                        redisScore += getScoreFactor(term, context.keyPrefix);
-                                        break;
-                                    case "MULTIPLY":
-                                        redisScore = getScoreFactor(term, context.keyPrefix);
-                                        break;
-                                    case "SUBTRACT":
-                                        redisScore -= getScoreFactor(term, context.keyPrefix);
-                                        break;
-                                    case "SET":
-                                        redisScore = getScoreFactor(term, context.keyPrefix);
-                                        break;
-
-                                }
+                                redisScore = getScoreFactor(term, context.keyPrefix);
                             }
 
 
@@ -408,25 +394,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             }
                         }
                         else{ //keyPrefix
-                            switch (context.scoreOperator) {
-                                case "ADD":
-                                    redisScore += getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                            context.keyPrefix);
-                                    break;
-                                case "MULTIPLY":
-                                    redisScore = getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                            context.keyPrefix);
-                                    break;
-                                case "SUBTRACT" :
-                                    redisScore -= getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                            context.keyPrefix);
-                                    break;
-                                case "SET":
-                                    redisScore = getScoreFactor(String.valueOf(numericDocValues.nextValue()),
-                                            context.keyPrefix);
-                                    break;
-
-                            }
+                            redisScore = getScoreFactor(String.valueOf(numericDocValues.nextValue()),
+                                    context.keyPrefix);
                         }
                     }
 
