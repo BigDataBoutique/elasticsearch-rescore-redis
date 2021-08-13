@@ -1,6 +1,5 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
-import com.bigdataboutique.elasticsearch.plugin.exceptions.PrefixesOverlapingException;
 import com.bigdataboutique.elasticsearch.plugin.exceptions.ScoreOperatorException;// Exceptions
 
 import org.apache.logging.log4j.LogManager;
@@ -45,8 +44,12 @@ import static org.elasticsearch.common.xcontent.ConstructingObjectParser.optiona
 
 public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public static final String NAME = "redis";
+
+    //------------------------Default Values for the Score and Boost operators-----------------------------
     private static final String SCORE_OPERATOR_DEFAULT = "ADD";
     private static final String BOOST_OPERATOR_DEFAULT = "ADD";
+    private static final float BOOST_WEIGHT_DEFAULT = 1f;
+    //------------------------------------------------------------------------------------------------------
 
     protected static final Logger log = LogManager.getLogger(RedisRescoreBuilder.class);
 
@@ -55,10 +58,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private final String[] keyPrefixes;
     private final String scoreOperator;
     private final String boostOperator;
+    private final float boostWeight;
+    //private final float scoreWeights;
 
 
 
-    private final String[] possibleOperators = new String[]{"MULTIPLY","ADD","SUBTRACT","SET"};
+    private final String[] possibleOperators = new String[]{"MULTIPLY","ADD","SUBTRACT","SET"};//possible operators
 
     private static Jedis jedis;
 
@@ -84,17 +89,31 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         return str;
     }
 
+    public static int[] GetIntegerArray(@Nullable ArrayList<?> arr) { // Transforms a ArrayList in a int[]
+        if (arr == null || arr.isEmpty())
+            return null;
+        int[] res = new int[arr.size()];
+        for (int j = 0; j < arr.size(); j++) {
+            if(arr.get(j) instanceof Integer)
+                res[j] = (int) arr.get(j);
+        }
+        return res;
+    }
+
+
+
 
 // Constructors--------------------------------------------------------------------------------------------------
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, @Nullable String scoreOperator,
-                               @Nullable String[] keyPrefixes, @Nullable String boostOperator)
-            throws ScoreOperatorException, PrefixesOverlapingException {
+                               @Nullable String[] keyPrefixes, @Nullable String boostOperator, @Nullable Float boostWeight)
+            throws ScoreOperatorException {
 
         this.keyField =  keyField;
         this.keyPrefix = keyPrefix;
         this.scoreOperator = scoreOperator == null ? SCORE_OPERATOR_DEFAULT : scoreOperator;
         this.boostOperator = boostOperator == null ? BOOST_OPERATOR_DEFAULT : boostOperator;
         this.keyPrefixes = keyPrefixes;
+        this.boostWeight = boostWeight == null ? BOOST_WEIGHT_DEFAULT : boostWeight;
 
 
         if (!checkOperator(this.scoreOperator))
@@ -110,16 +129,10 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         super(in);
         keyField = in.readString();
         keyPrefix = in.readOptionalString();
-        scoreOperator = in.readOptionalString() == null ? SCORE_OPERATOR_DEFAULT : in.readOptionalString();
-        keyPrefixes = in.readOptionalStringArray();
-        boostOperator = in.readOptionalString() == null ? BOOST_OPERATOR_DEFAULT : in.readOptionalString();
-
-
-        if (!checkOperator(this.scoreOperator))
-            throw new ScoreOperatorException(scoreOperator, "Wrong type operator:");
-
-        else if (!checkOperator(this.boostOperator))
-            throw new ScoreOperatorException(boostOperator, "Wrong type operator:");
+        scoreOperator = SCORE_OPERATOR_DEFAULT;
+        keyPrefixes = null;
+        boostOperator = BOOST_OPERATOR_DEFAULT;
+        boostWeight = BOOST_WEIGHT_DEFAULT;
 
     }
 //--------------------------------------------------------------------------------------------------
@@ -128,9 +141,6 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     protected void doWriteTo(StreamOutput out) throws IOException {
         out.writeString(keyField);
         out.writeOptionalString(keyPrefix);
-        out.writeOptionalString(scoreOperator);
-        out.writeOptionalString(boostOperator);
-        out.writeOptionalStringArray(keyPrefixes);
     }
 
     @Override
@@ -148,6 +158,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private static final ParseField SCORE_OPERATOR = new ParseField("score_operator");
     private static final ParseField KEY_PREFIXES = new ParseField("key_prefixes");
     private static final ParseField BOOST_OPERATOR = new ParseField("boost_operator");
+    private static final ParseField BOOST_WEIGHT = new ParseField("boost_weight");
 
     @Override
     protected void doXContent(XContentBuilder builder, Params params) throws IOException {
@@ -161,6 +172,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         if (keyPrefixes != null)
             builder.field(KEY_PREFIXES.getPreferredName(), keyPrefixes);
 
+        builder.field(BOOST_WEIGHT.getPreferredName(), boostWeight);
+
     }
 
     private static final ConstructingObjectParser<RedisRescoreBuilder, Void> PARSER =
@@ -168,7 +181,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             args -> {
                 try {
                     return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2],
-                            GetStringArray((ArrayList<?>) args[3]) , (String) args[4]);
+                            GetStringArray((ArrayList<?>) args[3]) , (String) args[4], (Float) args[5]);
 
                 } catch (IOException e) {
                     throw new IllegalArgumentException(e);
@@ -181,6 +194,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         PARSER.declareString(optionalConstructorArg(), SCORE_OPERATOR);
         PARSER.declareStringArray(optionalConstructorArg(), KEY_PREFIXES);
         PARSER.declareString(optionalConstructorArg(), BOOST_OPERATOR);
+        PARSER.declareFloat(optionalConstructorArg(), BOOST_WEIGHT);
     }
     public static RedisRescoreBuilder fromXContent(XContentParser parser) {
         return PARSER.apply(parser, null);
@@ -190,7 +204,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) throws IOException {
         IndexFieldData<?> keyField =
                 this.keyField == null ? null : context.getForField(context.fieldMapper(this.keyField));
-        return new RedisRescoreContext(windowSize, keyPrefix, keyField, scoreOperator, keyPrefixes, boostOperator);
+        return new RedisRescoreContext(windowSize, keyPrefix, keyField, scoreOperator, keyPrefixes, boostOperator, boostWeight);
     }
 
     @Override
@@ -200,12 +214,16 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
         RedisRescoreBuilder other = (RedisRescoreBuilder) obj;
         return keyField.equals(other.keyField)
-                && Objects.equals(keyPrefix, other.keyPrefix);
+                && Objects.equals(keyPrefix, other.keyPrefix)
+                && Objects.equals(keyPrefixes, other.keyPrefixes);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), keyField, keyPrefix);
+        if(keyPrefixes != null)
+            return Objects.hash(super.hashCode(), keyField, Arrays.hashCode(keyPrefixes));
+        else
+            return Objects.hash(super.hashCode(), keyField, keyPrefix);
     }
 
     String keyField() {
@@ -230,22 +248,30 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         return boostOperator;
     }
 
+    @Nullable
+    float boostWeight() {
+        return boostWeight;
+    }
+
     private static class RedisRescoreContext extends RescoreContext {
         private final String keyPrefix;
         private final String[] keyPrefixes;
         private final String scoreOperator;
         private final String boostOperator;
+        private final float boostWeight;
         @Nullable
         private final IndexFieldData<?> keyField;
 
         RedisRescoreContext(int windowSize, String keyPrefix, @Nullable IndexFieldData<?> keyField, String scoreOperator,
-                            String[] keyPrefixes, String boostOperator) {
+                            String[] keyPrefixes, String boostOperator, float boostWeight) {
             super(windowSize, RedisRescorer.INSTANCE);
             this.keyPrefix = keyPrefix;
             this.keyField = keyField;
             this.scoreOperator = scoreOperator;
             this.keyPrefixes = keyPrefixes;
             this.boostOperator = boostOperator;
+            this.boostWeight = boostWeight;
+
         }
     }
 
@@ -335,9 +361,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             final String term = docValues.lookupOrd(docValues.nextOrd()).utf8ToString();
 
                             if (context.keyPrefixes != null){ //keyPrefixes
-                                for (String prefix : context.keyPrefixes ){
+                                for (int j = 0; j < context.keyPrefixes.length  ; j++){
+                                    String prefix = context.keyPrefixes[j];
+
                                     if (redisScore == 0)
                                         redisScore = getScoreFactor(term, prefix);
+
                                     else {
                                         switch (context.scoreOperator) {
                                             case "ADD":
@@ -406,6 +435,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                                     context.keyPrefix);
                         }
                     }
+
+                    topDocs.scoreDocs[i].score *= context.boostWeight; //apply the boostWeight
 
                     switch (context.boostOperator) {
                         case "ADD":
