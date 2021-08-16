@@ -379,7 +379,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                             if (context.keyPrefixes != null){ //keyPrefixes
                                 for (int j = 0; j < context.keyPrefixes.length  ; j++){
                                     String prefix = context.keyPrefixes[j];
-                                    float scoreWeight = getScoreWeight(context.scoreWeights, i);
+                                    float scoreWeight = getScoreWeight(context.scoreWeights, j);
 
                                     if (redisScore == 0)
                                         redisScore = getScoreFactor(term, prefix, scoreWeight);
@@ -423,7 +423,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                         if (context.keyPrefixes != null){ //KeyPrefixes
                             for (int j = 0; j < context.keyPrefixes.length  ; j++){
                                 String prefix = context.keyPrefixes[j];
-                                float scoreWeight = getScoreWeight(context.scoreWeights, i);
+                                float scoreWeight = getScoreWeight(context.scoreWeights, j);
 
                                 if (redisScore == 0)
                                     redisScore = getScoreFactor(String.valueOf(numericDocValues.nextValue()),
