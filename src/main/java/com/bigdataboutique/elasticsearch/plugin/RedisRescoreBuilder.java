@@ -14,9 +14,7 @@ import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.xcontent.ConstructingObjectParser;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.*;
 import org.elasticsearch.index.fielddata.AtomicFieldData;
 import org.elasticsearch.index.fielddata.AtomicNumericFieldData;
 import org.elasticsearch.index.fielddata.IndexFieldData;
@@ -60,6 +58,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private final String boostOperator;
     private final Float boostWeight;
     private final Float[] scoreWeights;
+    private final Object test;
 
 
 
@@ -106,7 +105,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 // Constructors--------------------------------------------------------------------------------------------------
     public RedisRescoreBuilder(final String keyField, @Nullable String keyPrefix, @Nullable String scoreOperator,
                                @Nullable String[] keyPrefixes, @Nullable String boostOperator,
-                               @Nullable Float boostWeight, @Nullable Float[] scoreWeights)
+                               @Nullable Float boostWeight, @Nullable Float[] scoreWeights, @Nullable Object test)
             throws ScoreOperatorException {
 
         this.keyField =  keyField;
@@ -116,6 +115,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         this.keyPrefixes = keyPrefixes;
         this.boostWeight = boostWeight == null ? BOOST_WEIGHT_DEFAULT : boostWeight;
         this.scoreWeights = scoreWeights;
+        this.test = test;
 
 
         if (!checkOperator(this.scoreOperator))
@@ -136,6 +136,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         boostOperator = BOOST_OPERATOR_DEFAULT;
         boostWeight = BOOST_WEIGHT_DEFAULT;
         scoreWeights = null;
+        test = null;
 
     }
 //--------------------------------------------------------------------------------------------------
@@ -163,6 +164,8 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     private static final ParseField BOOST_OPERATOR = new ParseField("boost_operator");
     private static final ParseField BOOST_WEIGHT = new ParseField("boost_weight");
     private static final ParseField SCORE_WEIGHTS = new ParseField("score_weights");
+    private static final ParseField TEST = new ParseField("test");
+
 
     @Override
     protected void doXContent(XContentBuilder builder, Params params) throws IOException {
@@ -180,6 +183,18 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
         builder.field(SCORE_WEIGHTS.getPreferredName(), scoreWeights);
 
+        builder.field(TEST.getPreferredName(), test);
+
+
+
+    }
+
+    private static final ObjectParser<RedisRescoreBuilder,Void> OBJECT_PARSER =
+            new ObjectParser<RedisRescoreBuilder,Void>("KEY_PREFIXES",
+                    args -> {return args; }
+                        );
+    static {
+        OBJECT_PARSER.declareInt(optionalConstructorArg(), new ParseField("mineral"));;
     }
 
     private static final ConstructingObjectParser<RedisRescoreBuilder, Void> PARSER =
@@ -188,7 +203,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                 try {
                     return new RedisRescoreBuilder((String) args[0], (String) args[1], (String) args[2],
                             GetStringArray((ArrayList<?>) args[3]) , (String) args[4],
-                            (Float) args[5], GetFloatArray((ArrayList<?>) args[6]));
+                            (Float) args[5], GetFloatArray((ArrayList<?>) args[6]), args[7] );
 
                 } catch (IOException e) {
                     throw new IllegalArgumentException(e);
@@ -203,6 +218,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         PARSER.declareString(optionalConstructorArg(), BOOST_OPERATOR);
         PARSER.declareFloat(optionalConstructorArg(), BOOST_WEIGHT);
         PARSER.declareFloatArray(optionalConstructorArg(), SCORE_WEIGHTS);
+        PARSER.declareObjectArray(optionalConstructorArg(),new ObjectParser<Object>(),TEST);
     }
     public static RedisRescoreBuilder fromXContent(XContentParser parser) {
         return PARSER.apply(parser, null);
@@ -266,6 +282,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     Float[] scoreWeights(){
         return scoreWeights;
     }
+
+    @Nullable
+    Object test(){
+        return test;
+    }
+
 
     private static class RedisRescoreContext extends RescoreContext {
         private final String keyPrefix;
