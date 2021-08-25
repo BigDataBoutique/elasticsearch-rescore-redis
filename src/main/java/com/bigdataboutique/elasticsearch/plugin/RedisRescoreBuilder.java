@@ -189,12 +189,12 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
 
     }
 
-    private static final ObjectParser<RedisRescoreBuilder,Void> OBJECT_PARSER =
-            new ObjectParser<RedisRescoreBuilder,Void>("KEY_PREFIXES",
-                    args -> {return args; }
-                        );
+    private static final ConstructingObjectParser<KeyPrefixObj,Void> OBJECT_PARSER =
+            new ConstructingObjectParser<>("KEY_PREFIX_OBJ",
+                    args -> {return new KeyPrefixObj((String) args[0]);}
+                );
     static {
-        OBJECT_PARSER.declareInt(optionalConstructorArg(), new ParseField("mineral"));;
+        OBJECT_PARSER.declareString(constructorArg(), new ParseField("key"));
     }
 
     private static final ConstructingObjectParser<RedisRescoreBuilder, Void> PARSER =
@@ -218,7 +218,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         PARSER.declareString(optionalConstructorArg(), BOOST_OPERATOR);
         PARSER.declareFloat(optionalConstructorArg(), BOOST_WEIGHT);
         PARSER.declareFloatArray(optionalConstructorArg(), SCORE_WEIGHTS);
-        PARSER.declareObjectArray(optionalConstructorArg(),new ObjectParser<Object>(),TEST);
+        PARSER.declareObject(optionalConstructorArg(),OBJECT_PARSER,TEST);
     }
     public static RedisRescoreBuilder fromXContent(XContentParser parser) {
         return PARSER.apply(parser, null);

@@ -33,6 +33,7 @@ ext {
 
 repositories {
     jcenter()
+    mavenCentral()
 }
 
 configurations.all {
