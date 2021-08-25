@@ -14,7 +14,9 @@ import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.xcontent.*;
+import org.elasticsearch.common.xcontent.ConstructingObjectParser;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.fielddata.AtomicFieldData;
 import org.elasticsearch.index.fielddata.AtomicNumericFieldData;
 import org.elasticsearch.index.fielddata.IndexFieldData;
@@ -190,7 +192,7 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
     }
 
     private static final ConstructingObjectParser<KeyPrefixObj,Void> OBJECT_PARSER =
-            new ConstructingObjectParser<>("KEY_PREFIX_OBJ",
+            new ConstructingObjectParser<>("test",
                     args -> {return new KeyPrefixObj((String) args[0]);}
                 );
     static {
