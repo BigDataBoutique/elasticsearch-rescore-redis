@@ -25,7 +25,7 @@ public class RedisRescoreBuilderTests extends AbstractWireSerializingTestCase<Re
     @Override
     protected RedisRescoreBuilder mutateInstance(RedisRescoreBuilder instance) throws IOException {
         return new RedisRescoreBuilder(instance.keyField(), instance.keyPrefix(), instance.scoreOperator(),
-                instance.keyPrefixes(), instance.boostOperator(), instance.boostWeight(), instance.scoreWeights(), instance.test());
+                instance.keyPrefixes(), instance.boostOperator(), instance.boostWeight(), instance.scoreWeights(), instance.scoreFunctions());
     }
 
 
