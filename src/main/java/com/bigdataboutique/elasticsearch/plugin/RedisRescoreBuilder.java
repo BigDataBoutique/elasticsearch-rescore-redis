@@ -527,7 +527,9 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
                 }
 
                 try {
+
                     return Float.parseFloat(factor) * scoreWeight;
+
                 } catch (NumberFormatException ignored_e) {
                     log.warn("Redis rescore factor NumberFormatException for key " + fullKey);
                     return 1.0f;
