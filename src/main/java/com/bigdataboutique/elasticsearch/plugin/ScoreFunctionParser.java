@@ -12,7 +12,7 @@ public class ScoreFunctionParser {
         return _scoreFunctionParser;
     }
 
-    public List<String> parse(String toParse){
+    public String[] parse(String toParse, String replacer){
         List<String> res = new ArrayList<>();
         String function;
         int i = 0;
@@ -31,11 +31,15 @@ public class ScoreFunctionParser {
                 res.add(builder.toString());
                 builder.setLength(0);
             }
+            else if (current == '_'){
+                res.add(replacer);
+                builder.setLength(0);
+                i++;
+            }
             else
-                builder.append(toParse.charAt(i));
+                builder.append(current);
             i++;
         }
-        return res;
-
+        return res.toArray(new String[0]);
     }
 }
