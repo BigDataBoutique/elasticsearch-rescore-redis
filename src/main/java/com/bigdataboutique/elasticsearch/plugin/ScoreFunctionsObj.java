@@ -12,7 +12,7 @@ public class ScoreFunctionsObj {
     }
 
     //----------------------Functions-------------------------------------
-    public float pow(float exponent, float base){
+    public float pow(float base, float exponent){
         return (float) Math.pow(base,exponent);
     }
     //-------------------------------------------------------------

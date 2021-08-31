@@ -29,7 +29,6 @@ import org.elasticsearch.search.rescore.RescorerBuilder;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
@@ -524,16 +523,24 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
             if (scoreFunctions == null || scoreFunctions.length == 0)
                 return getScoreFactor(key, keyPrefix, scoreWeight);
             //add exception here
+            float scoreFactor = getScoreFactor(key, keyPrefix, 1);
+            Float res = null;
 
-            float scoreFactor = getScoreFactor(key, keyPrefix, scoreWeight);
+            if(Objects.equals(scoreFunctions[keyPrefixesIndex], "null")){
+                return scoreFactor * scoreWeight;
+            }
             String[] parsed = ScoreFunctionParser.getScoreFunctionParser().parse(scoreFunctions[keyPrefixesIndex],
                     String.valueOf(scoreFactor));
 
+            //--------------------------------------------Functions---------------------------------------------------
             switch (parsed[0]){
                 case "pow":
-                    return ScoreFunctionsObj.get().pow(Float.parseFloat(parsed[1]), Float.parseFloat(parsed[2]));
+                    res = ScoreFunctionsObj.get().pow(Float.parseFloat(parsed[1]), Float.parseFloat(parsed[2]));
+                    break;
             }
-            return scoreFactor;
+            //--------------------------------------------------------------------------------------------------------
+
+            return res == null ? scoreFactor * scoreWeight : res * scoreWeight ;
         }
 
 
