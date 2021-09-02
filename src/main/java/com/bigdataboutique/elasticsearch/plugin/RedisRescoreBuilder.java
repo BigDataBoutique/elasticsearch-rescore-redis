@@ -1,5 +1,6 @@
 package com.bigdataboutique.elasticsearch.plugin;
 
+import com.bigdataboutique.elasticsearch.plugin.exceptions.ScoreFunctionParseException;
 import com.bigdataboutique.elasticsearch.plugin.exceptions.ScoreOperatorException;// Exceptions
 
 import org.apache.logging.log4j.LogManager;
@@ -519,26 +520,34 @@ public class RedisRescoreBuilder extends RescorerBuilder<RedisRescoreBuilder> {
         }
 
         private static float getRescore(final String key, @Nullable final String keyPrefix, @Nullable float scoreWeight,
-                                        @Nullable int keyPrefixesIndex, @Nullable String[] scoreFunctions){
+                                        @Nullable int keyPrefixesIndex, @Nullable String[] scoreFunctions)
+                throws ScoreFunctionParseException {
+
             if (scoreFunctions == null || scoreFunctions.length == 0)
                 return getScoreFactor(key, keyPrefix, scoreWeight);
             //add exception here
-            float scoreFactor = getScoreFactor(key, keyPrefix, 1);
+            float scoreFactor = getScoreFactor(key, keyPrefix,1);
             Float res = null;
 
-            if(Objects.equals(scoreFunctions[keyPrefixesIndex], "null")){
+            if( keyPrefixesIndex >= scoreFunctions.length || Objects.equals(scoreFunctions[keyPrefixesIndex], "null")){
                 return scoreFactor * scoreWeight;
             }
-            String[] parsed = ScoreFunctionParser.getScoreFunctionParser().parse(scoreFunctions[keyPrefixesIndex],
-                    String.valueOf(scoreFactor));
 
-            //--------------------------------------------Functions---------------------------------------------------
-            switch (parsed[0]){
-                case "pow":
-                    res = ScoreFunctionsObj.get().pow(Float.parseFloat(parsed[1]), Float.parseFloat(parsed[2]));
-                    break;
+            try {
+                String[] parsed = ScoreFunctionParser.getScoreFunctionParser().parse(scoreFunctions[keyPrefixesIndex],
+                        String.valueOf(scoreFactor));
+
+
+                //--------------------------------------------Functions---------------------------------------------------
+                switch (parsed[0]) {
+                    case "pow":
+                        res = ScoreFunctionsObj.get().pow(Float.parseFloat(parsed[1]), Float.parseFloat(parsed[2]));
+                        break;
+                }
+                //--------------------------------------------------------------------------------------------------------
+            } catch(Exception e){
+                throw new ScoreFunctionParseException(scoreFunctions[keyPrefixesIndex]);
             }
-            //--------------------------------------------------------------------------------------------------------
 
             return res == null ? scoreFactor * scoreWeight : res * scoreWeight ;
         }
